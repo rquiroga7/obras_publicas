@@ -87,16 +87,16 @@ plot_obras <- ggplot(plot_data, aes(x = factor(fechainicioanio), y = count, fill
   geom_text(data = lines_data %>% filter(fechainicioanio >= 2021 & fechainicioanio <= 2023), aes(x = x_num, y = line_y, label = paste0(round(avg_avance, 0), "% avance")), color = "black", size = 4.2, angle = 90, inherit.aes = FALSE) +  # Rotate text 90 degrees
   geom_text(data = totals, aes(x = factor(fechainicioanio), y = total, label = total, color = "gray10"), inherit.aes = FALSE, vjust = -0.5, size = 5, fontface = "bold") +  # Add bold labels on top of bars with colors
   labs(
-    title = "Obras Públicas Nacionales de \"Agua y Cloacas\" por Año de Inicio (2016-2025)",
+    title = "Obras Públicas Nacionales de \"Agua y Cloacas\" por Año de Inicio",
     x = "Año de Inicio de Obra",
     y = "Cantidad de Obras",
     fill = "Obras",
-    caption = "Gráfico: Rodrigo Quiroga. Datos: Secretaría de Obras Públicas, actualizado el 22/5/2025.\nSe incluye el porcentaje promedio de avance de obra para las obras en ejecución iniciadas en cada año\nDatos: https://mapainversiones.obraspublicas.gob.ar, código: www.github.com/rquiroga7/obras_publicas"
+    caption = "Gráfico: Rodrigo Quiroga. Datos: Secretaría de Obras Públicas, datos 2016-2025, actualizado el 22/5/2025.\nSe incluye el porcentaje promedio de avance de obra para las obras en ejecución iniciadas en cada año.\nDatos: https://mapainversiones.obraspublicas.gob.ar, código: www.github.com/rquiroga7/obras_publicas"
   ) +
-  theme_light(base_size = 14) +  # Use light theme with larger base text size
+  theme_light(base_size = 18) +  # Use light theme with larger base text size
   theme(aspect.ratio = 1, legend.position = "top") +  # Make plot square and position legend at the top
   scale_fill_manual(values = c("En ejecución" = "orange", "Finalizadas" = "gray40")) +
   scale_color_identity()  # Use the color values as is
 
 # Save the plot
-ggsave("/home/rquiroga/github/obras_publicas/plot_obras.png", plot = plot_obras, dpi = 300, width = 10, height = 10)
+ggsave("/home/rquiroga/github/obras_publicas/plot_obras.png", plot = plot_obras, dpi = 300, width = 12, height = 12)
