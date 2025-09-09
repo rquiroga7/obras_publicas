@@ -21,6 +21,17 @@ filtered_data <- filtered_data %>%
 # Debug: Print number of rows after year filtering
 print(paste("Rows after year filtering:", nrow(filtered_data)))
 
+# Calculate average avancefisico for En ejecución
+en_ejecucion_data <- filtered_data %>% filter(etapaobra != "FINALIZADAS")
+avg_avance <- mean(en_ejecucion_data$avancefisico, na.rm = TRUE)
+print(paste("Average avancefisico for En ejecución:", avg_avance))
+
+# Calculate average avancefisico per year for En ejecución
+avg_data <- filtered_data %>%
+  filter(etapaobra != "FINALIZADAS") %>%
+  group_by(fechainicioanio) %>%
+  summarise(avg_avance = mean(avancefisico, na.rm = TRUE))
+
 # Summarize counts per year
 summary_data <- filtered_data %>%
   group_by(fechainicioanio) %>%
@@ -38,6 +49,10 @@ summary_data <- left_join(all_years, summary_data, by = "fechainicioanio") %>%
     finalized = ifelse(is.na(finalized), 0, finalized),
     en_ejecucion = total - finalized
   )
+
+# Join average data
+summary_data <- left_join(summary_data, avg_data, by = "fechainicioanio") %>%
+  mutate(avg_avance = ifelse(is.na(avg_avance), 0, avg_avance))
 
 # Debug: Print summary data
 print("Summary data:")
@@ -58,15 +73,24 @@ print(plot_data)
 # Calculate totals for labels
 totals <- summary_data %>% select(fechainicioanio, total)
 
+# Calculate data for the average text
+lines_data <- summary_data %>%
+  mutate(
+    line_y = finalized + en_ejecucion / 2,  # Center of the orange bar
+    x_num = as.numeric(factor(fechainicioanio))  # Numeric x for text
+  ) %>%
+  select(fechainicioanio, line_y, x_num, avg_avance)
+
 plot_obras <- ggplot(plot_data, aes(x = factor(fechainicioanio), y = count, fill = status)) +
   geom_bar(stat = "identity", position = "stack") +  # Single geom_bar with full data for stacking
-  geom_text(data = totals, aes(x = factor(fechainicioanio), y = total, label = total), inherit.aes = FALSE, vjust = -0.5, size = 4) +  # Add labels on top of bars, no inheritance
+  geom_text(data = lines_data %>% filter(fechainicioanio >= 2020 & fechainicioanio <= 2023), aes(x = x_num, y = line_y, label = paste0(round(avg_avance, 0), "%")), color = "black", size = 4.2, inherit.aes = FALSE) +  # Black outline (larger)
+  geom_text(data = totals, aes(x = factor(fechainicioanio), y = total, label = total), inherit.aes = FALSE, vjust = -0.5, size = 6) +  # Add labels on top of bars, no inheritance
   labs(
-    title = "Histograma de Obras por Año de Inicio (2016-2025)",
-    x = "Año de Inicio",
+    title = "Obras Públicas Nacionales de \"Agua y Cloacas\" por Año de Inicio (2016-2025)",
+    x = "Año de Inicio de Obra",
     y = "Cantidad de Obras",
     fill = "Obras",
-    caption = "Datos: Secretaría de Obras Públicas,\ndatos actualizados el 22/5/2025;\nver: https://mapainversiones.obraspublicas.gob.ar"  # Multiline footnote
+    caption = "Gráfico: Rodrigo Quiroga. Datos: Secretaría de Obras Públicas, actualizado el 22/5/2025.\nSe incluye el porcentaje promedio de avance de obra para las obras en ejecución iniciadas en cada año\nver: https://mapainversiones.obraspublicas.gob.ar"
   ) +
   theme_light(base_size = 14) +  # Use light theme with larger base text size
   theme(aspect.ratio = 1, legend.position = "top") +  # Make plot square and position legend at the top
