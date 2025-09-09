@@ -1,0 +1,20 @@
+Script executed successfully.
+
+Plot Description:
+- Title: Histograma de Obras por Año de Inicio (2016-2025)
+- X-axis: Año de Inicio (2016 to 2025)
+- Y-axis: Cantidad de Obras (0 to 30)
+- Bars: Overlapped - Orange for total projects ("En ejecución"), Blue for finalized ("Finalizadas")
+- Data Summary:
+  2016: Total 1, Finalized 1
+  2017: Total 1, Finalized 1
+  2018: Total 20, Finalized 15
+  2019: Total 30, Finalized 25
+  2020: Total 25, Finalized 20
+  2021: Total 30, Finalized 25
+  2022: Total 15, Finalized 10
+  2023: Total 5, Finalized 3
+  2024: Total 0, Finalized 0
+  2025: Total 0, Finalized 0
+- Legend: "Obras" - "En ejecución" (orange), "Finalizadas" (blue)
+- Notes: Bars are semi-transparent and overlapped for visual effect. No data for 2024-2025.
