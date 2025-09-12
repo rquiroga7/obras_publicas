@@ -148,7 +148,7 @@ plot_obras <- ggplot(plot_data, aes(x = factor(fechainicioanio), y = count, fill
   geom_blank(data = ymax_grid, aes(x = factor(fechainicioanio), y = ymax), inherit.aes = FALSE) +
   geom_text(data = totals, aes(x = factor(fechainicioanio), y = total, label = total, color = "gray10"), inherit.aes = FALSE, vjust = -0.5, size = 4, fontface = "bold") +  # Add bold labels on top of bars with colors
   labs(
-    title = "Obras Públicas Nacionales de \"Agua y Cloacas\" por Año de Inicio",
+    title = "Obras Públicas Nacionales por Año de Inicio",
     x = "Año de Inicio de Obra",
     y = "Cantidad de Obras",
     fill = "Obras",
@@ -168,6 +168,90 @@ tryCatch({
 }, error = function(e) {
   message("ggsave failed: ", e$message)
 })
+
+
+# --- Build finalization-year (fechafinanio) aggregates and plot ---
+# Some rows may have NA for `fechafinanio`; filter and aggregate separately so
+# finalization plot uses the right year field and shows 2016-2025 properly.
+if ("fechafinanio" %in% names(data)) {
+  dataf <- data %>% dplyr::filter(!is.na(fechafinanio) & fechafinanio >= 2016 & fechafinanio <= 2025) %>%
+    dplyr::mutate(fechafinanio = as.integer(fechafinanio))
+
+  # Use same sector list so facet set is consistent; fall back to sectors seen in finalization data
+  sectors_f <- sort(unique(dataf$sectornombre))
+  sectors_all <- sort(unique(c(all_sectors, sectors_f)))
+
+  summary_data_f <- dataf %>%
+    dplyr::group_by(fechafinanio, sectornombre) %>%
+    dplyr::summarise(
+      total = n(),
+      finalized = sum(etapaobra == "FINALIZADAS", na.rm = TRUE)
+    ) %>%
+    dplyr::mutate(en_ejecucion = total - finalized) %>%
+    dplyr::ungroup()
+
+  # Build full grid 2016:2025 x sectors_all and left-join
+  full_grid_f <- expand.grid(fechafinanio = as.integer(2016:2025), sectornombre = sectors_all, stringsAsFactors = FALSE)
+  summary_data_f <- dplyr::left_join(full_grid_f, summary_data_f, by = c("fechafinanio", "sectornombre")) %>%
+    dplyr::mutate(
+      total = ifelse(is.na(total), 0, total),
+      finalized = ifelse(is.na(finalized), 0, finalized),
+      en_ejecucion = ifelse(is.na(en_ejecucion), 0, en_ejecucion)
+    )
+
+  # Prepare plotting long form for finalization
+  plot_data_f <- summary_data_f %>%
+    dplyr::select(fechafinanio, en_ejecucion, finalized, sectornombre) %>%
+    tidyr::pivot_longer(cols = c(en_ejecucion, finalized), names_to = "status", values_to = "count") %>%
+    dplyr::mutate(status = dplyr::recode(status, "en_ejecucion" = "En ejecución", "finalized" = "Finalizadas")) %>%
+    dplyr::mutate(status = factor(status, levels = c("En ejecución", "Finalizadas")))
+
+  # Force year factor levels so empty years (2025) appear
+  year_levels <- as.character(2016:2025)
+  plot_data_f$fechafinanio <- factor(as.character(plot_data_f$fechafinanio), levels = year_levels)
+  summary_data_f$fechafinanio <- as.integer(summary_data_f$fechafinanio)
+  totals_f <- summary_data_f %>% dplyr::select(fechafinanio, total, sectornombre)
+  totals_f$fechafinanio <- factor(as.character(totals_f$fechafinanio), levels = year_levels)
+
+  # Compute per-sector ymax for finalization plot
+  ymax_df_f <- totals_f %>% dplyr::group_by(sectornombre) %>% dplyr::summarise(ymax = max(total, na.rm = TRUE) * 1.1) %>% dplyr::ungroup()
+  ymax_grid_f <- tidyr::crossing(sectornombre = ymax_df_f$sectornombre, fechafinanio = year_levels) %>% dplyr::left_join(ymax_df_f, by = "sectornombre")
+
+  # Ensure sectornombre factors align with the sectors_all set
+  plot_data_f$sectornombre <- factor(plot_data_f$sectornombre, levels = sectors_all)
+  totals_f$sectornombre <- factor(totals_f$sectornombre, levels = sectors_all)
+
+
+plot_obrasf <- ggplot(plot_data_f, aes(x = factor(fechafinanio), y = count, fill = status)) +
+  geom_bar(stat = "identity", position = "stack") +  # Single geom_bar with full data for stacking
+  # Add an invisible geom to enforce per-facet ymax = 110% of the max total for that sector
+  geom_blank(data = ymax_grid_f, aes(x = factor(fechafinanio), y = ymax), inherit.aes = FALSE) +
+  geom_text(data = totals_f, aes(x = factor(fechafinanio), y = total, label = total, color = "gray10"), inherit.aes = FALSE, vjust = -0.5, size = 4, fontface = "bold") +  # Add bold labels on top of bars with colors
+  labs(
+    title = "Obras Públicas Nacionales por Año de Finalización",
+    x = "Año de Finalización de Obra",
+    y = "Cantidad de Obras",
+    fill = "Obras",
+    caption = "Gráfico: Rodrigo Quiroga. Datos: Secretaría de Obras Públicas, datos 2016-2025, actualizado el 22/5/2025.\nSe incluye el porcentaje promedio de avance de obra para las obras en ejecución iniciadas en cada año.\nDatos: https://mapainversiones.obraspublicas.gob.ar, código: www.github.com/rquiroga7/obras_publicas"
+  ) +
+  theme_light(base_size = 18) +  # Use light theme with larger base text size
+  theme(aspect.ratio = 1, legend.position = "top", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +  # Rotate x labels 90 degrees
+  scale_fill_manual(values = c("En ejecución" = "orange", "Finalizadas" = "gray40")) +
+  scale_color_identity() +  # Use the color values as is
+  facet_wrap(~sectornombre, scales = "free_y", drop = FALSE)  # Facet by sectornombre with independent y-scales
+
+  print(plot_obrasf)
+  tryCatch({
+    ggsave("./plot_obras_facet_finalizadas.png", plot = plot_obrasf, dpi = 300, width = 12, height = 12)
+    message("Saved ./plot_obras_facet_finalizadas.png")
+  }, error = function(e) {
+    message("ggsave failed: ", e$message)
+  })
+} else {
+  message("Column 'fechafinanio' not found in the dataset; skipping finalization plot.")
+}
+
+
 
 # Fallback: save one plot per sector (sanitized filenames) so you always have per-sector images
 for (s in all_sectors) {
