@@ -277,3 +277,42 @@ for (s in all_sectors) {
     message("Failed to save ", file_name, ": ", e$message)
   })
 }
+
+# --- Total de Obras Públicas (aggregated across all sectors) ---
+# Aggregate totals across all sectors for each year
+totals_all <- summary_data %>%
+  dplyr::group_by(fechainicioanio) %>%
+  dplyr::summarise(total = sum(total, na.rm = TRUE))
+
+# Aggregate plot_data across all sectors
+plot_data_total <- plot_data %>%
+  dplyr::group_by(fechainicioanio, status) %>%
+  dplyr::summarise(count = sum(count, na.rm = TRUE)) %>%
+  dplyr::ungroup()
+
+# Calculate ymax for total plot (10% higher than max total)
+ymax_total <- max(totals_all$total) * 1.1
+
+plot_obras_total <- ggplot(plot_data_total, aes(x = factor(fechainicioanio), y = count, fill = status)) +
+  geom_bar(stat = "identity", position = "stack") +
+  geom_blank(aes(y = ymax_total), inherit.aes = FALSE) +
+  geom_text(data = totals_all, aes(x = factor(fechainicioanio), y = total, label = total, color = "gray10"), inherit.aes = FALSE, vjust = -0.5, size = 5, fontface = "bold") +
+  labs(
+    title = "Total de Obras Públicas Nacionales por Año de Inicio",
+    x = "Año de Inicio de Obra",
+    y = "Cantidad de Obras",
+    fill = "Obras",
+    caption = "Gráfico: Rodrigo Quiroga. Datos: Secretaría de Obras Públicas, datos 2016-2025, actualizado el 22/5/2025.\nSe incluye el porcentaje promedio de avance de obra para las obras en ejecución iniciadas en cada año.\nDatos: https://mapainversiones.obraspublicas.gob.ar, código: www.github.com/rquiroga7/obras_publicas"
+  ) +
+  theme_light(base_size = 18) +
+  theme(aspect.ratio = 1, legend.position = "top", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_fill_manual(values = c("En ejecución" = "orange", "Finalizadas" = "gray40")) +
+  scale_color_identity()
+
+print(plot_obras_total)
+tryCatch({
+  ggsave("./plot_obras_total.png", plot = plot_obras_total, dpi = 300, width = 12, height = 12)
+  message("Saved ./plot_obras_total.png")
+}, error = function(e) {
+  message("ggsave failed: ", e$message)
+})
